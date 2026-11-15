@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>VKHub</title>
+
+    <style>
+        body {
+            font-family: system-ui, sans-serif;
+            max-width: 650px;
+            margin: 60px auto;
+            padding: 20px;
+        }
+
+        input {
+            width: 100%;
+            padding: 10px;
+            box-sizing: border-box;
+            margin: 10px 0;
+        }
+
+        button {
+            padding: 10px 20px;
+            cursor: pointer;
+        }
+
+        #result {
+            margin-top: 24px;
+            white-space: pre-wrap;
+        }
+
+        #video-player {
+            display: block;
+            width: 100%;
+            aspect-ratio: 16 / 9;
+            border: 0;
+            margin-top: 20px;
+        }
+
+        #video-player[hidden] {
+            display: none;
+        }
+
+        #notes-panel {
+            margin-top: 30px;
+        }
+
+        #note-text {
+            display: block;
+            width: 100%;
+            box-sizing: border-box;
+            padding: 10px;
+            margin: 10px 0;
+        }
+
+        #notes-list li {
+            margin-bottom: 12px;
+            overflow-wrap: anywhere;
+        }
+    </style>
+</head>
+
+<body>
+    <h1>VKHub</h1>
+    <p>Paste a YouTube URL to inspect its components.</p>
+
+    <form id="url-form">
+        <label for="video-url">YouTube URL</label>
+        <input id="video-url" type="url" required placeholder="https://www.youtube.com/watch?v=...">
+        <button type="submit">Inspect</button>
+    </form>
+
+    <pre id="result" role="status" aria-live="polite"></pre>
+    <iframe id="video-player" title="YouTube video player" allow="encrypted-media; picture-in-picture; fullscreen"
+        allowfullscreen hidden>
+    </iframe>
+
+
+    <section id="notes-panel" hidden>
+        <h2>Video notes</h2>
+
+        <form id="note-form">
+            <label for="note-timestamp">Timestamp (seconds)</label>
+            <input id="note-timestamp" type="number" min="0" step="1" required>
+
+            <label for="note-text">Note</label>
+            <textarea id="note-text" rows="3" maxlength="2000" required></textarea>
+
+            <button type="submit">Save note</button>
+        </form>
+
+        <p id="notes-status" role="status" aria-live="polite"></p>
+        <ul id="notes-list"></ul>
+    </section>
+
+
+    <script>
+        const form = document.querySelector("#url-form");
+        const result = document.querySelector("#result");
+        const input = document.querySelector("#video-url");
+        const player = document.querySelector("#video-player");
+        const notesPanel = document.querySelector("#notes-panel");
+        const noteForm = document.querySelector("#note-form");
+        const noteTimestamp = document.querySelector("#note-timestamp");
+        const noteText = document.querySelector("#note-text");
+        const notesList = document.querySelector("#notes-list");
+        const notesStatus = document.querySelector("#notes-status");
+
+        let currentVideoId = null;
+
+        form.addEventListener("submit", async (event) => {
+            event.preventDefault();
+
+            currentVideoId = null;
+            notesPanel.hidden = true;
+            notesList.replaceChildren();
+
+            player.hidden = true;
+            player.removeAttribute("src");
+
+            result.textContent = "Processing...";
+
+            try {
+                const response = await fetch("/api/videos/parse", {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json"
+                    },
+                    body: JSON.stringify({ url: input.value })
+                });
+
+                const data = await response.json();
+
+                if (!response.ok) {
+                    result.textContent = `Error: ${data.detail ?? "Request failed"}`;
+                    return;
+                }
+
+                result.textContent =
+                    `Video ID: ${data.video_id}\n` +
+                    `Start time: ${data.start_seconds} seconds\n` +
+                    `Video URL: ${data.video_url}\n` +
+                    `Playback URL: ${data.playback_url}\n` +
+                    `Embed URL: ${data.embed_url}`;
+
+                player.src = data.embed_url;
+                player.hidden = false;
+
+                currentVideoId = data.video_id;
+                notesPanel.hidden = false;
+                notesStatus.textContent = "Loading notes...";
+
+                try {
+                    await loadNotes(currentVideoId);
+                } catch (error) {
+                    notesStatus.textContent = "Could not load notes.";
+                }
+
+
+            } catch (error) {
+                result.textContent = "Could not contact the server.";
+            }
+        });
+
+
+        noteForm.addEventListener("submit", async (event) => {
+            event.preventDefault();
+
+            if (currentVideoId === null) {
+                return;
+            }
+
+            const videoId = currentVideoId;
+            notesStatus.textContent = "Saving note...";
+
+            try {
+                const response = await fetch(
+                    `/api/videos/${encodeURIComponent(videoId)}/notes`,
+                    {
+                        method: "POST",
+                        headers: {
+                            "Content-Type": "application/json"
+                        },
+                        body: JSON.stringify({
+                            start_seconds: Number(noteTimestamp.value),
+                            text: noteText.value
+                        })
+                    }
+                );
+
+                if (!response.ok) {
+                    notesStatus.textContent =
+                        `Could not save note (HTTP ${response.status}).`;
+                    return;
+                }
+
+                noteForm.reset();
+
+                if (currentVideoId === videoId) {
+                    await loadNotes(videoId);
+                }
+
+            } catch (error) {
+                notesStatus.textContent = "Could not contact the server.";
+            }
+        });
+
+
+
+        async function loadNotes(videoId) {
+            const response = await fetch(
+                `/api/videos/${encodeURIComponent(videoId)}/notes`
+            );
+
+            if (!response.ok) {
+                throw new Error("Failed to retrieve notes");
+            }
+
+            const notes = await response.json();
+
+            notesList.replaceChildren();
+
+            for (const note of notes) {
+                const item = document.createElement("li");
+
+                const minutes = Math.floor(note.start_seconds / 60);
+                const seconds = String(note.start_seconds % 60).padStart(2, "0");
+
+                item.textContent = `${minutes}:${seconds} — ${note.text}`;
+
+                notesList.appendChild(item);
+            }
+
+            notesStatus.textContent = notes.length
+                ? `${notes.length} note(s)`
+                : "No notes yet.";
+        }
+
+    </script>
+</body>
+
+</html>

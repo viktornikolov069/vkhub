@@ -1,0 +1,22 @@
+<type>: <short description>
+
+# Format: <type>(<scope>): <description> (scope is optional)
+
+# Types:
+# feat     - New functionality
+# fix      - Bug fix
+# test     - Add or modify tests
+# refactor - Restructure code without changing behavior
+# docs     - Documentation changes
+# chore    - Maintenance
+# build    - Dependency or build changes
+# ci       - CI/CD changes
+
+# Scopes:
+# video, notes, api, ui, tests, deps
+
+# Rules:
+# - Use imperative mood: "add" instead of "added"
+# - Keep the subject concise (ideally under 50 characters)
+# - Explain what changed, not the implementation details
+# - Add a body below if the change requires explanation
