@@ -1,9 +1,10 @@
 from pathlib import Path
 from typing import Annotated
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from fastapi import Path as PathParam
-from fastapi.responses import FileResponse
+from fastapi.responses import HTMLResponse
+from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel
 
 from app.notes import Note, NoteCreate, NoteStore
@@ -15,6 +16,10 @@ from app.youtube import (
 
 app = FastAPI(title="VKHub")
 app.state.note_store = NoteStore()
+
+# Configure Jinja2
+BASE_DIR = Path(__file__).resolve().parent
+templates = Jinja2Templates(directory=BASE_DIR / "templates")
 
 
 class ParseRequest(BaseModel):
@@ -46,10 +51,20 @@ def parse_video(request: ParseRequest) -> ParseResponse:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
-@app.get("/", response_class=FileResponse)
-def homepage() -> FileResponse:
-    file_path = Path(__file__).resolve().parent / "static" / "index.html"
-    return FileResponse(file_path)
+# TODO: To be removed
+# @app.get("/", response_class=FileResponse)
+# def homepage() -> FileResponse:
+#     file_path = Path(__file__).resolve().parent / "static" / "index.html"
+#     return FileResponse(file_path)
+
+
+@app.get("/", response_class=HTMLResponse)
+def index(request: Request):
+    return templates.TemplateResponse(
+        request,
+        "index.html",
+        {"app_name": "Video Knowledge Hub"},
+    )
 
 
 VideoId = Annotated[
