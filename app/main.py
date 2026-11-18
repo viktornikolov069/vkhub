@@ -5,6 +5,7 @@ from fastapi import FastAPI, HTTPException, Request
 from fastapi import Path as PathParam
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
+from jinja2 import StrictUndefined
 from pydantic import BaseModel
 
 from app.notes import Note, NoteCreate, NoteStore
@@ -17,9 +18,13 @@ from app.youtube import (
 app = FastAPI(title="VKHub")
 app.state.note_store = NoteStore()
 
-# Configure Jinja2
 BASE_DIR = Path(__file__).resolve().parent
+
 templates = Jinja2Templates(directory=BASE_DIR / "templates")
+
+# Fail immediately when a template references an undefined variable,
+# rather than silently rendering an empty value.
+templates.env.undefined = StrictUndefined
 
 
 class ParseRequest(BaseModel):
@@ -63,7 +68,7 @@ def index(request: Request):
     return templates.TemplateResponse(
         request,
         "index.html",
-        {"app_name": "Video Knowledge Hub"},
+        {"app_name": "VKHub"},
     )
 
 
