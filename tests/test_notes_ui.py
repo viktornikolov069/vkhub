@@ -1,7 +1,9 @@
-from fastapi.testclient import TestClient
 from html.parser import HTMLParser
 
+from fastapi.testclient import TestClient
+
 from app.main import app
+
 
 class TagCollector(HTMLParser):
     def __init__(self):
@@ -21,8 +23,6 @@ def test_notes_preview_returns_html_fragment():
 
     assert response.status_code == 200
     assert "text/html" in response.headers["content-type"]
-    assert response.template.name == (
-        "partials/notes_preview.html"
-    )
+    assert response.template.name == ("partials/notes_preview.html")
     assert "Notes panel loaded successfully." in response.text
     assert parser.tags.count("html") == 0
