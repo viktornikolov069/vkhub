@@ -93,3 +93,12 @@ def create_note(video_id: VideoId, payload: NoteCreate) -> Note:
 )
 def list_notes(video_id: VideoId) -> list[Note]:
     return app.state.note_store.list_for_video(video_id)
+
+
+@app.get("/ui/notes/preview", response_class=HTMLResponse)
+def notes_preview(request: Request):
+    return templates.TemplateResponse(
+        request,
+        "partials/notes_preview.html",
+        {"message": "Notes panel loaded successfully."},
+    )

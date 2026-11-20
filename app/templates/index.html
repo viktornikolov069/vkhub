@@ -92,6 +92,12 @@ VKHub
     <p id="notes-status" role="status" aria-live="polite"></p>
     <ul id="notes-list"></ul>
 </section>
+
+<button type="button" hx-get="/ui/notes/preview" hx-target="#notes-preview" hx-swap="innerHTML">
+    Preview notes
+</button>
+
+<div id="notes-preview"></div>
 {% endblock %}
 
 {% block scripts %}
@@ -138,9 +144,13 @@ VKHub
                 return;
             }
 
+            const minutes = Math.floor(data.start_seconds / 60);
+            const seconds = String(data.start_seconds % 60)
+                .padStart(2, "0");
+
             result.textContent =
                 `Video ID: ${data.video_id}\n` +
-                `Start time: ${data.start_seconds} seconds\n` +
+                `Start time: ${data.start_seconds} seconds (${minutes}:${seconds})\n` +
                 `Video URL: ${data.video_url}\n` +
                 `Playback URL: ${data.playback_url}\n` +
                 `Embed URL: ${data.embed_url}`;
